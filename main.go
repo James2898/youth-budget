@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
@@ -14,13 +15,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type Form struct {
+	ID          primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Description string             `json:"description"`
+	Value       int                `json:"value"`
+	Type        int                `json:"type"`
+	User        string             `json:"user"`
+}
+
 type Transaction struct {
 	ID          primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	Description string             `json:"description"`
 	Value       int                `json:"value"`
 	Type        int                `json:"type"`
-	// CreateDate  primitive.DateTime `json:"create_date,omitempty"`
-	// CreatedBy   string             `json:"create_by,omitempty"`
+	CreateDate  time.Time          `json:"create_date,omitempty"`
+	CreatedBy   string             `json:"create_by,omitempty"`
 	// UpdateDate  primitive.DateTime `json:"update_date,omitempty"`
 	// UpdatedBy   string             `json:"updated_by,omitempty"`
 }
@@ -88,18 +97,29 @@ func getTransactions(c *fiber.Ctx) error {
 
 func newTransaction(c *fiber.Ctx) error {
 	transaction := new(Transaction)
+	form := new(Form)
 
-	if err := c.BodyParser(transaction); err != nil {
+	if err := c.BodyParser(form); err != nil {
 		return err
 	}
 
-	if transaction.Description == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Transaction cannot be empty"})
+	if form.Description == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Transaction description cannot be empty"})
+	}
+	transaction.Description = form.Description
+
+	if form.Value == 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "Transaction value cannot be empty"})
+	}
+	transaction.Value = form.Value
+
+	if form.User == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Transaction user cannot be empty"})
 	}
 
-	if transaction.Value == 0 {
-		return c.Status(400).JSON(fiber.Map{"error": "Transaction cannot be empty"})
-	}
+	transaction.Type = form.Type
+	transaction.CreateDate = time.Now()
+	transaction.CreatedBy = form.User
 
 	insertResult, err := collection.InsertOne(context.Background(), transaction)
 	if err != nil {
@@ -155,5 +175,18 @@ func updateTransaction(c *fiber.Ctx) error {
 }
 
 func deleteTransaction(c *fiber.Ctx) error {
+	id := c.Params("id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid Transaction ID"})
+	}
+
+	filter := bson.M{"_id": objectID}
+
+	_, err = collection.DeleteOne(context.Background(), filter)
+	if err != nil {
+		return err
+	}
+
 	return c.Status(200).JSON(fiber.Map{"success": true})
 }

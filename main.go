@@ -163,8 +163,6 @@ func updateTransaction(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid User"})
 	}
 
-	fmt.Println(form.User)
-
 	filter := bson.M{"_id": objectID}
 	update := bson.M{
 		"$set": bson.M{
@@ -175,7 +173,6 @@ func updateTransaction(c *fiber.Ctx) error {
 			"update_by":   "Tricia",
 		}}
 
-	fmt.Println(update)
 	_, err = collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		return err

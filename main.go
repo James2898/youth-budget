@@ -28,10 +28,10 @@ type Transaction struct {
 	Description string             `json:"description"`
 	Value       int                `json:"value"`
 	Type        int                `json:"type"`
-	CreateDate  time.Time          `json:"create_date,omitempty"`
-	CreatedBy   string             `json:"create_by,omitempty"`
-	// UpdateDate  primitive.DateTime `json:"update_date,omitempty"`
-	// UpdatedBy   string             `json:"updated_by,omitempty"`
+	Create_Date time.Time          `json:"create_date,omitempty"`
+	Create_By   string             `json:"create_by,omitempty"`
+	Update_Date time.Time          `json:"update_date,omitempty"`
+	Update_By   string             `json:"update_by,omitempty"`
 }
 
 var collection *mongo.Collection
@@ -118,8 +118,10 @@ func newTransaction(c *fiber.Ctx) error {
 	}
 
 	transaction.Type = form.Type
-	transaction.CreateDate = time.Now()
-	transaction.CreatedBy = form.User
+	transaction.Create_Date = time.Now()
+	transaction.Create_By = form.User
+	transaction.Update_Date = time.Now()
+	transaction.Update_By = form.User
 
 	insertResult, err := collection.InsertOne(context.Background(), transaction)
 	if err != nil {
@@ -133,39 +135,47 @@ func newTransaction(c *fiber.Ctx) error {
 
 func updateTransaction(c *fiber.Ctx) error {
 	id := c.Params("id")
-	transaction := new(Transaction)
+	form := new(Form)
 
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid Transaction ID"})
 	}
 
-	err = c.BodyParser(transaction)
+	err = c.BodyParser(form)
 	if err != nil {
 		return err
 	}
 
-	if transaction.Value == 0 {
+	if form.Value == 0 {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid Value"})
 	}
 
-	if transaction.Description == "" {
+	if form.Description == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid Description"})
 	}
 
-	fmt.Println(transaction.Type)
-	if !(transaction.Type == 1 || transaction.Type == 0) {
+	if !(form.Type == 1 || form.Type == 0) {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid Type"})
 	}
+
+	if form.User == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid User"})
+	}
+
+	fmt.Println(form.User)
 
 	filter := bson.M{"_id": objectID}
 	update := bson.M{
 		"$set": bson.M{
-			"value":       transaction.Value,
-			"description": transaction.Description,
-			"type":        transaction.Type,
+			"value":       form.Value,
+			"description": form.Description,
+			"type":        form.Type,
+			"update_date": time.Now(),
+			"update_by":   "Tricia",
 		}}
 
+	fmt.Println(update)
 	_, err = collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		return err
